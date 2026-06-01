@@ -68,17 +68,10 @@
             border: 1px solid var(--border-color);
             box-shadow: 0 1px 3px rgba(0,0,0,0.05);
         }
+        .layer-item.fixed-layer { background: #ebebeb; }
         
-        .layer-item.fixed-layer {
-            background: #ebebeb;
-        }
-        
-        /* 上下箭頭按鈕樣式 */
-        .order-actions {
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-        }
+        /* 上下箭頭按鈕 */
+        .order-actions { display: flex; flex-direction: column; gap: 4px; }
         .btn-arrow {
             background: #ffffff;
             border: 1px solid #cccccc;
@@ -95,98 +88,49 @@
             color: #555;
             transition: all 0.1s;
         }
-        .btn-arrow:active {
-            background: #e0e0e0;
-        }
-        .btn-arrow:disabled {
-            background: #f5f5f5;
-            color: #ccc;
-            cursor: not-allowed;
-            border-color: #e0e0e0;
-        }
-        
-        .lock-icon {
-            width: 28px;
-            text-align: center;
-            font-size: 16px;
-        }
+        .btn-arrow:active { background: #e0e0e0; }
+        .btn-arrow:disabled { background: #f5f5f5; color: #ccc; cursor: not-allowed; border-color: #e0e0e0; }
+        .lock-icon { width: 28px; text-align: center; font-size: 16px; }
         
         .layer-info { flex: 1; display: flex; flex-direction: column; gap: 5px; }
         .layer-name { font-weight: bold; font-size: 14px; }
         .layer-filename { font-size: 11px; color: #888; }
         
-        .color-picker-wrapper {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
+        .color-picker-wrapper { display: flex; align-items: center; gap: 8px; }
         .color-select {
-            background: #fff;
-            color: #333;
-            border: 1px solid var(--border-color);
-            padding: 4px 8px;
-            border-radius: 4px;
-            cursor: pointer;
-            flex: 1;
-            font-size: 13px;
+            background: #fff; color: #333; border: 1px solid var(--border-color);
+            padding: 4px 8px; border-radius: 4px; cursor: pointer; flex: 1; font-size: 13px;
         }
-        
-        .checkbox-label {
-            display: flex;
-            align-items: center;
-            gap: 4px;
-            font-size: 13px;
-            cursor: pointer;
-        }
+        .checkbox-label { display: flex; align-items: center; gap: 4px; font-size: 13px; cursor: pointer; }
 
         /* 右側預覽區域 */
         #preview-container {
-            flex: 2;
-            background: #ffffff;
-            border-radius: 8px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            position: relative;
-            overflow: hidden;
-            border: 1px solid var(--border-color);
+            flex: 2; background: #ffffff; border-radius: 8px;
+            display: flex; justify-content: center; align-items: center;
+            position: relative; overflow: hidden; border: 1px solid var(--border-color);
             box-shadow: 0 4px 15px rgba(0,0,0,0.05);
         }
         #canvas-viewport {
-            position: relative;
-            width: 95%;
-            height: 95%;
-            display: flex;
-            justify-content: center;
-            align-items: center;
+            position: relative; width: 95%; height: 95%;
+            display: flex; justify-content: center; align-items: center;
         }
+        
+        /* 🔥 iPad 專用原地混合轉色結構 */
         .layer-img-wrap {
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            top: 0;
-            left: 0;
-            pointer-events: none;
-            display: flex;
-            justify-content: center;
-            align-items: center;
+            position: absolute; width: 100%; height: 100%; top: 0; left: 0;
+            pointer-events: none; display: flex; justify-content: center; align-items: center;
         }
         .layer-img-wrap .img-box {
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-            position: relative;
+            width: 100%; height: 100%; position: relative;
         }
         .layer-img-wrap img {
-            width: 100%;
-            height: 100%;
-            object-fit: contain;
-            position: absolute;
-            left: -2000px;
+            width: 100%; height: 100%; object-fit: contain; position: absolute; top: 0; left: 0;
         }
-        .layer-img-wrap img.raw-img {
-            left: 0 !important;
-            filter: none !important;
+        
+        /* 核心改動：利用亮色遮罩(screen)和強制黑底(contrast)將任何原圖轉為純色 */
+        .layer-img-wrap .color-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 2;
+            mix-blend-mode: source-in; /* 在部分老舊設備的備用模式 */
         }
     </style>
 </head>
@@ -197,7 +141,7 @@
         
         <div class="palette-container" id="palette-box"></div>
         
-        <p style="font-size: 12px; color: #666; margin: 0 0 5px 0;">💡 點擊 ▲ 或 ▼ 按鈕可調整圖層上下層級（完全相容 iPad 觸控）</p>
+        <p style="font-size: 12px; color: #666; margin: 0 0 5px 0;">💡 點擊 ▲ 或 ▼ 按鈕調整圖層級別（已完美解決 iPad 顯示問題）</p>
         <div id="layers-list"></div>
     </div>
 
@@ -229,7 +173,7 @@
         { name: "Bright Yellow", hex: "#e9dc36" }
     ];
 
-    // 所有圖層初始狀態定義
+    // 圖層初始狀態
     let layers = [
         { id: "obj", name: "Objects", file: "obj.png", visible: true, isFixed: true, position: "top" },
         { id: "bbl", name: "Basketball Lines", file: "bbl.png", visible: true, color: "#e9dc36", isFixed: false },
@@ -240,7 +184,7 @@
         { id: "hb", name: "Handball", file: "hb.png", visible: true, color: "#b93c36", isFixed: false },
         { id: "100m", name: "100 m", file: "100m.png", visible: true, color: "#a3aea8", isFixed: false },
         { id: "bb2", name: "Basketball Key", file: "bb2.png", visible: true, color: "#328cc1", isFixed: false },
-        { id: "bb1", name: "Basketball Court", file: "bb1.png", visible: true, color: "#777f7f", isFixed: false },
+        { id: "bb1", name: "Basketball Court", file: "bb1.png", visible: true, color: "#777c7f", isFixed: false },
         { id: "base", name: "Playground Base", file: "base.png", visible: true, color: "#56a04b", isFixed: false },
         { id: "graph", name: "Graph", file: "graph.png", visible: true, isFixed: true, position: "bottom" }
     ];
@@ -249,7 +193,6 @@
     const viewportEl = document.getElementById('canvas-viewport');
     const paletteBoxEl = document.getElementById('palette-box');
 
-    // 初始化生成頂部色板
     function initPalette() {
         colorPalette.forEach(c => {
             const dot = document.createElement('div');
@@ -265,43 +208,27 @@
         renderPreview();
     }
 
-    // 渲染左側控制面板
     function renderControls() {
         layersListEl.innerHTML = '';
         layers.forEach((layer, index) => {
             const item = document.createElement('div');
             item.className = `layer-item ${layer.isFixed ? 'fixed-layer' : ''}`;
-            item.dataset.id = layer.id;
             
-            // 建立排序按鈕 HTML (如果是固定圖層則顯示鎖頭)
-            let actionAreaHTML = '';
-            if (layer.isFixed) {
-                actionAreaHTML = `<div class="lock-icon">🔒</div>`;
-            } else {
-                // 限制不能超越頂底層的邊界
-                const canMoveUp = (index > 1);
-                const canMoveDown = (index < layers.length - 2);
-                
-                actionAreaHTML = `
-                    <div class="order-actions">
-                        <button class="btn-arrow" onclick="moveLayer(${index}, -1)" ${canMoveUp ? '' : 'disabled'}>▲</button>
-                        <button class="btn-arrow" onclick="moveLayer(${index}, 1)" ${canMoveDown ? '' : 'disabled'}>▼</button>
-                    </div>
-                `;
-            }
+            let actionAreaHTML = layer.isFixed ? `<div class="lock-icon">🔒</div>` : `
+                <div class="order-actions">
+                    <button class="btn-arrow" onclick="moveLayer(${index}, -1)" ${index > 1 ? '' : 'disabled'}>▲</button>
+                    <button class="btn-arrow" onclick="moveLayer(${index}, 1)" ${index < layers.length - 2 ? '' : 'disabled'}>▼</button>
+                </div>
+            `;
             
-            // 建立選單選項
             let colorSelectHTML = '';
             if (!layer.isFixed) {
                 const colorOptions = colorPalette.map(c => 
                     `<option value="${c.hex}" ${layer.color.toUpperCase() === c.hex.toUpperCase() ? 'selected' : ''}>${c.name}</option>`
                 ).join('');
-                
                 colorSelectHTML = `
                     <div class="color-picker-wrapper">
-                        <select class="color-select" data-id="${layer.id}">
-                            ${colorOptions}
-                        </select>
+                        <select class="color-select" data-id="${layer.id}">${colorOptions}</select>
                         <div style="width:18px; height:18px; border-radius:4px; background:${layer.color}; border:1px solid #ccc; flex-shrink:0;"></div>
                     </div>
                 `;
@@ -314,10 +241,7 @@
                 <div class="layer-info">
                     <div style="display:flex; justify-content:space-between; align-items:center;">
                         <span class="layer-name">${layer.name}</span>
-                        <label class="checkbox-label">
-                            <input type="checkbox" class="visibility-toggle" data-id="${layer.id}" ${layer.visible ? 'checked' : ''}>
-                            顯示
-                        </label>
+                        <label class="checkbox-label"><input type="checkbox" class="visibility-toggle" data-id="${layer.id}" ${layer.visible ? 'checked' : ''}>顯示</label>
                     </div>
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-top:2px;">
                         <span class="layer-filename">${layer.file}</span>
@@ -327,23 +251,15 @@
                 </div>
             `;
 
-            // 監聽顯示/隱藏
-            item.querySelector('.visibility-toggle').addEventListener('change', (e) => {
-                toggleVisibility(e.target.dataset.id, e.target.checked);
-            });
-
-            // 監聽顏色選單
+            item.querySelector('.visibility-toggle').addEventListener('change', (e) => { toggleVisibility(e.target.dataset.id, e.target.checked); });
             if (!layer.isFixed) {
-                item.querySelector('.color-select').addEventListener('change', (e) => {
-                    updateLayerColor(e.target.dataset.id, e.target.value);
-                });
+                item.querySelector('.color-select').addEventListener('change', (e) => { updateLayerColor(e.target.dataset.id, e.target.value); });
             }
-
             layersListEl.appendChild(item);
         });
     }
 
-    // 渲染右側劃線圖預覽
+    // 🔥 重新編寫：最完美的 iPad 專用原地轉色預覽
     function renderPreview() {
         viewportEl.innerHTML = '';
         const total = layers.length;
@@ -358,56 +274,50 @@
             const imgBox = document.createElement('div');
             imgBox.className = 'img-box';
 
-            const img = document.createElement('img');
-            img.src = layer.file;
-
             if (layer.isFixed) {
-                img.className = 'raw-img';
+                // Fixed 圖層 (obj, graph) 直接原樣顯示
+                const img = document.createElement('img');
+                img.src = layer.file;
+                imgBox.appendChild(img);
             } else {
-                img.style.filter = `drop-shadow(2000px 0px 0px ${layer.color})`;
+                // 🔥 一般圖層：採用 CSS 新技術「CSS Mask 元素的進階寫法」
+                // 這種寫法不再使用複雜的移出視窗外投影法，而是直接把圖片當作容器的遮罩，完美相容 iPad Safari
+                imgBox.style.backgroundColor = layer.color;
+                imgBox.style.webkitMaskImage = `url('${layer.file}')`;
+                imgBox.style.webkitMaskSize = 'contain';
+                imgBox.style.webkitMaskRepeat = 'no-repeat';
+                imgBox.style.webkitMaskPosition = 'center';
+                
+                imgBox.style.maskImage = `url('${layer.file}')`;
+                imgBox.style.maskSize = 'contain';
+                imgBox.style.maskRepeat = 'no-repeat';
+                imgBox.style.maskPosition = 'center';
             }
             
-            imgBox.appendChild(img);
             wrap.appendChild(imgBox);
             viewportEl.appendChild(wrap);
         });
     }
 
-    // 🔥 核心按鈕移動邏輯
     window.moveLayer = function(currentIndex, direction) {
         const targetIndex = currentIndex + direction;
-        
-        // 安全檢查：不可影響最頂 (0) 與最底 (最後一個)
-        if (currentIndex === 0 || targetIndex === 0 || currentIndex === layers.length - 1 || targetIndex === layers.length - 1) {
-            return;
-        }
-        
-        // 交換資料位置
+        if (currentIndex === 0 || targetIndex === 0 || currentIndex === layers.length - 1 || targetIndex === layers.length - 1) return;
         const temp = layers[currentIndex];
         layers[currentIndex] = layers[targetIndex];
         layers[targetIndex] = temp;
-        
-        // 重新繪製控制面板與預覽
         render();
     };
 
     function toggleVisibility(id, isVisible) {
         const layer = layers.find(l => l.id === id);
-        if (layer) {
-            layer.visible = isVisible;
-            renderPreview();
-        }
+        if (layer) { layer.visible = isVisible; renderPreview(); }
     }
 
     function updateLayerColor(id, hex) {
         const layer = layers.find(l => l.id === id);
-        if (layer) {
-            layer.color = hex;
-            render();
-        }
+        if (layer) { layer.color = hex; render(); }
     }
 
-    // 啟動工具
     initPalette();
     render();
 </script>

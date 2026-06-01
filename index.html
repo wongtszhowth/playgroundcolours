@@ -214,7 +214,7 @@
         });
     }
 
-    // 渲染右側預覽 (包含強行轉色修正)
+// 完美的 drop-shadow 轉色解決方案
     function renderPreview() {
         viewportEl.innerHTML = '';
         const total = layers.length;
@@ -223,21 +223,27 @@
             wrap.className = 'layer-img-wrap';
             wrap.style.zIndex = total - index; 
 
-            const imgDiv = document.createElement('div');
-            imgDiv.style.backgroundImage = `url('${layer.file}')`;
-            
-            // 核心：遮罩設定
-            imgDiv.style.maskImage = `url('${layer.file}')`;
-            imgDiv.style.webkitMaskImage = `url('${layer.file}')`;
-            
-            // 🔥 強制改為 alpha 模式：只要原圖不透明，就 100% 替換為新顏色
-            imgDiv.style.maskMode = 'alpha';
-            imgDiv.style.webkitMaskMode = 'alpha';
-            
-            // 填入選擇的顏色
-            imgDiv.style.backgroundColor = layer.color;
+            // 建立一個獨立的圖片容器
+            const imgContainer = document.createElement('div');
+            imgContainer.style.width = '100%';
+            imgContainer.style.height = '100%';
+            imgContainer.style.overflow = 'hidden'; // 隱藏移出邊界的原圖
+            imgContainer.style.position = 'relative';
 
-            wrap.appendChild(imgDiv);
+            // 核心魔術：
+            // 1. filter: drop-shadow(2000px 0px 0px ${layer.color}) 代表在右邊 2000px 的地方生成一個純色的完美複製體
+            // 2. transform: translateX(-2000px) 再把整個圖片往左拉回 2000px，這樣原本隱藏的本體就消失了，畫面上只留下完美的純色投影！
+            const img = document.createElement('img');
+            img.src = layer.file;
+            img.style.width = '100%';
+            img.style.height = '100%';
+            img.style.objectFit = 'contain';
+            img.style.position = 'absolute';
+            img.style.left = '-2000px'; // 把原圖往左移出可見區域
+            img.style.filter = `drop-shadow(2000px 0px 0px ${layer.color})`; // 投射純色影子回原位
+            
+            imgContainer.appendChild(img);
+            wrap.appendChild(imgContainer);
             viewportEl.appendChild(wrap);
         });
     }

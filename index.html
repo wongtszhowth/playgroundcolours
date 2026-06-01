@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>操場劃線顏色與圖層測試工具</title>
+    <style>
+        :root {
+            --bg-color: #222;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg-color);
+            color: #fff;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            gap: 20px;
+            height: 100vh;
+            box-sizing: border-box;
+        }
+        /* 左側控制面板 */
+        #control-panel {
+            flex: 1;
+            max-width: 450px;
+            background: #333;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        h2 { margin-top: 0; border-bottom: 1px solid #444; padding-bottom: 10px; }
+        
+        .layer-item {
+            background: #444;
+            padding: 12px;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            cursor: grab;
+            user-select: none;
+            border: 1px solid transparent;
+            transition: border 0.2s;
+        }
+        .layer-item:active { cursor: grabbing; }
+        .layer-item.dragging { opacity: 0.5; border: 1px dashed #fff; }
+        
+        .drag-handle { color: #888; cursor: grab; font-size: 20px; }
+        .layer-info { flex: 1; }
+        .layer-name { font-weight: bold; font-size: 14px; margin-bottom: 5px; }
+        
+        .color-picker-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .color-select {
+            background: #555;
+            color: white;
+            border: 1px solid #666;
+            padding: 4px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            flex: 1;
+        }
+
+        /* 右側預覽區域 */
+        #preview-container {
+            flex: 2;
+            background: #1a1a1a;
+            border-radius: 8px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            overflow: hidden;
+            border: 2px solid #444;
+        }
+        /* 畫布本體：維持 16:9 或隨意，圖層全滿疊加 */
+        #canvas-viewport {
+            position: relative;
+            width: 90%;
+            height: 90%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .layer-img-wrap {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+            pointer-events: none; /* 讓點擊穿透，不影響操作 */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        /* 核心：利用 mask-image 將圖片當作遮罩，再用 background-color 填色 */
+        .layer-img-wrap div {
+            width: 100%;
+            height: 100%;
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+            mask-size: contain;
+            mask-repeat: no-repeat;
+            mask-position: center;
+            -webkit-mask-size: contain;
+            -webkit-mask-repeat: no-repeat;
+            -webkit-mask-position: center;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="control-panel">
+        <h2>圖層與顏色管理</h2>
+        <p style="font-size: 12px; color: #aaa; margin: 0 0 10px 0;">💡 拖曳圖層可上下排序（越上面的項目在網頁最上層）</p>
+        <div id="layers-list"></div>
+    </div>
+
+    <div id="preview-container">
+        <div id="canvas-viewport"></div>
+    </div>
+
+<script>
+    // ==========================================
+    // 1. 設定區：請在此修改你的檔案名稱與顏色清單
+    // ==========================================
+    
+    // 你的 9 個 PNG 檔案名稱 (請確保路徑正確，建議與此 HTML 放同一資料夾)
+    const layerFiles = [
+        "tennis.png",
+        "base.png",
+        "bb1.png",
+        "bb2.png",
+        "100m.png",
+        "hb.png",
+        "vb.png",
+        "pb2.png",
+        "bbl.png"
+    ];
+
+    // 你稍後可以自定義的 Hex 顏色清單 (這裡先放一些預設色，之後你可以自行用文字編輯器增減)
+    const colorPalette = [
+        { name: "預設白", hex: "#FFFFFF" },
+        { name: "跑道紅", hex: "#A63A3A" },
+        { name: "草地綠", hex: "#3A8346" },
+        { name: "線條黃", hex: "#E6B800" },
+        { name: "天空藍", hex: "#3A7BA6" },
+        { name: "活力橘", hex: "#D97724" },
+        { name: "深灰黑", hex: "#333333" }
+    ];
+
+    // ==========================================
+    // 2. 程式邏輯區 (無需修改)
+    // ==========================================
+    
+    // 初始化圖層資料狀態 (預設順序由上到下)
+    let layers = layerFiles.map((filename, index) => ({
+        id: `layer-${index}`,
+        name: filename,
+        file: filename,
+        color: colorPalette[0].hex // 預設白色
+    }));
+
+    const layersListEl = document.getElementById('layers-list');
+    const viewportEl = document.getElementById('canvas-viewport');
+
+    // 渲染工具
+    function render() {
+        renderControls();
+        renderPreview();
+    }
+
+    // 渲染左側控制項
+    function renderControls() {
+        layersListEl.innerHTML = '';
+        layers.forEach((layer, index) => {
+            const item = document.createElement('div');
+            item.className = 'layer-item';
+            item.draggable = true;
+            item.dataset.id = layer.id;
+            
+            // 建立顏色選單的 Options
+            const colorOptions = colorPalette.map(c => 
+                `<option value="${c.hex}" ${layer.color.toUpperCase() === c.hex.toUpperCase() ? 'selected' : ''}>${c.name} (${c.hex})</option>`
+            ).join('');
+
+            item.innerHTML = `
+                <div class="drag-handle">☰</div>
+                <div class="layer-info">
+                    <div class="layer-name">${layer.name} <span style="font-size:11px; color:#888;">(層級: ${layers.length - index})</span></div>
+                    <div class="color-picker-wrapper">
+                        <select class="color-select" data-id="${layer.id}">
+                            ${colorOptions}
+                        </select>
+                        <div style="width:20px; height:20px; border-radius:4px; background:${layer.color}; border:1px solid #fff;"></div>
+                    </div>
+                </div>
+            `;
+
+            // 監聽顏色切換
+            item.querySelector('.color-select').addEventListener('change', (e) => {
+                updateLayerColor(e.target.dataset.id, e.target.value);
+            });
+
+            // 拖曳事件綁定
+            item.addEventListener('dragstart', handleDragStart);
+            item.addEventListener('dragover', handleDragOver);
+            item.addEventListener('drop', handleDrop);
+            item.addEventListener('dragend', handleDragEnd);
+
+            layersListEl.appendChild(item);
+        });
+    }
+
+    // 渲染右側預覽 (陣列前面的在最上層，利用 z-index 倒序排列)
+    function renderPreview() {
+        viewportEl.innerHTML = '';
+        const total = layers.length;
+        layers.forEach((layer, index) => {
+            const wrap = document.createElement('div');
+            wrap.className = 'layer-img-wrap';
+            // 陣列第 0 個最上層，z-index 最高
+            wrap.style.zIndex = total - index; 
+
+            const imgDiv = document.createElement('div');
+            // 使用純 CSS Mask 技術：把 PNG 當遮罩，背景顏色就是我們選的顏色
+            imgDiv.style.backgroundImage = `url('${layer.file}')`;
+            imgDiv.style.maskImage = `url('${layer.file}')`;
+            imgDiv.style.webkitMaskImage = `url('${layer.file}')`;
+            imgDiv.style.backgroundColor = layer.color;
+
+            wrap.appendChild(imgDiv);
+            viewportEl.appendChild(wrap);
+        });
+    }
+
+    // 更新顏色
+    function updateLayerColor(id, hex) {
+        const layer = layers.find(l => l.id === id);
+        if (layer) {
+            layer.color = hex;
+            render();
+        }
+    }
+
+    // --- Drag and Drop 拖曳排序邏輯 ---
+    let dragSrcEl = null;
+
+    function handleDragStart(e) {
+        this.classList.add('dragging');
+        dragSrcEl = this;
+        e.dataTransfer.effectAllowed = 'move';
+    }
+
+    function handleDragOver(e) {
+        if (e.preventDefault) { e.preventDefault(); }
+        return false;
+    }
+
+    function handleDrop(e) {
+        if (e.stopPropagation) { e.stopPropagation(); }
+        
+        if (dragSrcEl !== this) {
+            const listItems = Array.from(layersListEl.children);
+            const fromIndex = listItems.indexOf(dragSrcEl);
+            const toIndex = listItems.indexOf(this);
+            
+            // 重新排列資料陣列
+            const targetItem = layers.splice(fromIndex, 1)[0];
+            layers.splice(toIndex, 0, targetItem);
+            
+            render();
+        }
+        return false;
+    }
+
+    function handleDragEnd() {
+        this.classList.remove('dragging');
+    }
+
+    // 初始化
+    render();
+</script>
+</body>
+</html>

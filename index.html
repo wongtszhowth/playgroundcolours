@@ -80,7 +80,7 @@
             overflow: hidden;
             border: 2px solid #444;
         }
-        /* 畫布本體：維持 16:9 或隨意，圖層全滿疊加 */
+        /* 畫布本體 */
         #canvas-viewport {
             position: relative;
             width: 90%;
@@ -95,12 +95,12 @@
             height: 100%;
             top: 0;
             left: 0;
-            pointer-events: none; /* 讓點擊穿透，不影響操作 */
+            pointer-events: none;
             display: flex;
             justify-content: center;
             align-items: center;
         }
-        /* 核心：利用 mask-image 將圖片當作遮罩，再用 background-color 填色 */
+        /* 核心轉色樣式 */
         .layer-img-wrap div {
             width: 100%;
             height: 100%;
@@ -130,23 +130,21 @@
 
 <script>
     // ==========================================
-    // 1. 設定區：請在此修改你的檔案名稱與顏色清單
+    // 1. 設定區：已替換為您的實體 PNG 檔名
     // ==========================================
-    
-    // 你的 9 個 PNG 檔案名稱 (請確保路徑正確，建議與此 HTML 放同一資料夾)
     const layerFiles = [
-        "tennis.png",
-        "base.png",
-        "bb1.png",
-        "bb2.png",
-        "100m.png",
-        "hb.png",
-        "vb.png",
+        "bbl.png",
         "pb2.png",
-        "bbl.png"
+        "vb.png",
+        "hb.png",
+        "100m.png",
+        "bb2.png",
+        "bb1.png",
+        "base.png",
+        "tennis.png"
     ];
 
-    // 你稍後可以自定義的 Hex 顏色清單 (這裡先放一些預設色，之後你可以自行用文字編輯器增減)
+    // 您稍後可以隨意自定義的 Hex 顏色清單
     const colorPalette = [
         { name: "預設白", hex: "#FFFFFF" },
         { name: "跑道紅", hex: "#A63A3A" },
@@ -158,21 +156,20 @@
     ];
 
     // ==========================================
-    // 2. 程式邏輯區 (無需修改)
+    // 2. 程式邏輯區
     // ==========================================
     
-    // 初始化圖層資料狀態 (預設順序由上到下)
+    // 初始化圖層狀態
     let layers = layerFiles.map((filename, index) => ({
         id: `layer-${index}`,
         name: filename,
         file: filename,
-        color: colorPalette[0].hex // 預設白色
+        color: colorPalette[0].hex
     }));
 
     const layersListEl = document.getElementById('layers-list');
     const viewportEl = document.getElementById('canvas-viewport');
 
-    // 渲染工具
     function render() {
         renderControls();
         renderPreview();
@@ -187,7 +184,6 @@
             item.draggable = true;
             item.dataset.id = layer.id;
             
-            // 建立顏色選單的 Options
             const colorOptions = colorPalette.map(c => 
                 `<option value="${c.hex}" ${layer.color.toUpperCase() === c.hex.toUpperCase() ? 'selected' : ''}>${c.name} (${c.hex})</option>`
             ).join('');
@@ -205,12 +201,10 @@
                 </div>
             `;
 
-            // 監聽顏色切換
             item.querySelector('.color-select').addEventListener('change', (e) => {
                 updateLayerColor(e.target.dataset.id, e.target.value);
             });
 
-            // 拖曳事件綁定
             item.addEventListener('dragstart', handleDragStart);
             item.addEventListener('dragover', handleDragOver);
             item.addEventListener('drop', handleDrop);
@@ -220,21 +214,27 @@
         });
     }
 
-    // 渲染右側預覽 (陣列前面的在最上層，利用 z-index 倒序排列)
+    // 渲染右側預覽 (包含強行轉色修正)
     function renderPreview() {
         viewportEl.innerHTML = '';
         const total = layers.length;
         layers.forEach((layer, index) => {
             const wrap = document.createElement('div');
             wrap.className = 'layer-img-wrap';
-            // 陣列第 0 個最上層，z-index 最高
             wrap.style.zIndex = total - index; 
 
             const imgDiv = document.createElement('div');
-            // 使用純 CSS Mask 技術：把 PNG 當遮罩，背景顏色就是我們選的顏色
             imgDiv.style.backgroundImage = `url('${layer.file}')`;
+            
+            // 核心：遮罩設定
             imgDiv.style.maskImage = `url('${layer.file}')`;
             imgDiv.style.webkitMaskImage = `url('${layer.file}')`;
+            
+            // 🔥 強制改為 alpha 模式：只要原圖不透明，就 100% 替換為新顏色
+            imgDiv.style.maskMode = 'alpha';
+            imgDiv.style.webkitMaskMode = 'alpha';
+            
+            // 填入選擇的顏色
             imgDiv.style.backgroundColor = layer.color;
 
             wrap.appendChild(imgDiv);
@@ -251,7 +251,7 @@
         }
     }
 
-    // --- Drag and Drop 拖曳排序邏輯 ---
+    // Drag and Drop 拖曳排序
     let dragSrcEl = null;
 
     function handleDragStart(e) {
@@ -273,7 +273,6 @@
             const fromIndex = listItems.indexOf(dragSrcEl);
             const toIndex = listItems.indexOf(this);
             
-            // 重新排列資料陣列
             const targetItem = layers.splice(fromIndex, 1)[0];
             layers.splice(toIndex, 0, targetItem);
             
@@ -286,7 +285,7 @@
         this.classList.remove('dragging');
     }
 
-    // 初始化
+    // 初始化啟動
     render();
 </script>
 </body>

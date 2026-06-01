@@ -2,7 +2,7 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>Playground Colours</title>
     <style>
         :root {
@@ -55,9 +55,7 @@
             border: 1px solid rgba(0,0,0,0.2);
             transition: transform 0.1s;
         }
-        .color-dot:hover {
-            transform: scale(1.2);
-        }
+        .color-dot:hover { transform: scale(1.2); }
 
         /* 圖層項目 */
         .layer-item {
@@ -69,17 +67,27 @@
             gap: 12px;
             border: 1px solid var(--border-color);
             box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            position: relative;
+            /* 阻止 iPad 內建的長按選取文字功能 */
+            -webkit-user-select: none;
+            user-select: none;
         }
-        .layer-item.draggable { cursor: grab; }
-        .layer-item.draggable:active { cursor: grabbing; }
-        .layer-item.dragging { opacity: 0.5; border: 1px dashed #999; }
+        .layer-item.draggable { 
+            cursor: grab; 
+            touch-action: none; /* 🔥 關鍵：阻止 iPad 滾動視窗，讓觸控留給拖曳 */
+        }
+        .layer-item.dragging { 
+            opacity: 0.5; 
+            border: 1px dashed #999; 
+            background: #f0f0f0;
+        }
         
         .layer-item.fixed-layer {
             background: #ebebeb;
             cursor: not-allowed;
         }
         
-        .drag-handle { color: #aaa; font-size: 20px; user-select: none; }
+        .drag-handle { color: #aaa; font-size: 20px; padding: 0 5px; }
         .drag-handle.disabled { color: #ccc; cursor: not-allowed; }
         
         .layer-info { flex: 1; display: flex; flex-direction: column; gap: 5px; }
@@ -155,7 +163,6 @@
             position: absolute;
             left: -2000px;
         }
-        /* 不需要改色的原始圖片樣式 */
         .layer-img-wrap img.raw-img {
             left: 0 !important;
             filter: none !important;
@@ -169,7 +176,7 @@
         
         <div class="palette-container" id="palette-box"></div>
         
-        <p style="font-size: 12px; color: #666; margin: 0 0 5px 0;">💡 拖曳中間的圖層可上下排序（越上面疊在越上層）</p>
+        <p style="font-size: 12px; color: #666; margin: 0 0 5px 0;">💡 拖曳中間圖層可上下排序（支援 iPad 觸控與滑鼠）</p>
         <div id="layers-list"></div>
     </div>
 
@@ -178,7 +185,7 @@
     </div>
 
 <script>
-    // 5. 顏色列表
+    // 顏色列表
     const colorPalette = [
         { name: "Tropical Green", hex: "#385c4e" },
         { name: "Spring Green", hex: "#56a04b" },
@@ -201,7 +208,7 @@
         { name: "Bright Yellow", hex: "#e9dc36" }
     ];
 
-    // 3, 4, 7, 8. 所有圖層初始狀態定義 (此順序代表預設由上而下的疊加順序)
+    // 所有圖層初始狀態定義
     let layers = [
         { id: "obj", name: "Objects", file: "obj.png", visible: true, isFixed: true, position: "top" },
         { id: "bbl", name: "Basketball Lines", file: "bbl.png", visible: true, color: "#e9dc36", isFixed: false },
@@ -246,7 +253,6 @@
             item.draggable = !layer.isFixed;
             item.dataset.id = layer.id;
             
-            // 建立選單選項
             let colorSelectHTML = '';
             if (!layer.isFixed) {
                 const colorOptions = colorPalette.map(c => 
@@ -283,22 +289,27 @@
                 </div>
             `;
 
-            // 監聽顯示/隱藏勾選
+            // 監聽顯示/隱藏
             item.querySelector('.visibility-toggle').addEventListener('change', (e) => {
                 toggleVisibility(e.target.dataset.id, e.target.checked);
             });
 
-            // 監聽顏色下拉選單
             if (!layer.isFixed) {
+                // 監聽顏色選單
                 item.querySelector('.color-select').addEventListener('change', (e) => {
                     updateLayerColor(e.target.dataset.id, e.target.value);
                 });
                 
-                // 拖曳事件
+                // 電腦版滑鼠拖曳事件
                 item.addEventListener('dragstart', handleDragStart);
                 item.addEventListener('dragover', handleDragOver);
                 item.addEventListener('drop', handleDrop);
                 item.addEventListener('dragend', handleDragEnd);
+
+                // 🔥 iPad 觸控拖曳支援 (Touch Events)
+                item.addEventListener('touchstart', handleTouchStart, { passive: false });
+                item.addEventListener('touchmove', handleTouchMove, { passive: false });
+                item.addEventListener('touchend', handleTouchEnd);
             }
 
             layersListEl.appendChild(item);
@@ -311,12 +322,10 @@
         const total = layers.length;
         
         layers.forEach((layer, index) => {
-            // 如果設定為不顯示，直接跳過不渲染
             if (!layer.visible) return;
 
             const wrap = document.createElement('div');
             wrap.className = 'layer-img-wrap';
-            // 陣列上方的圖層 z-index 較高，確保 obj 在最前，graph 在最後
             wrap.style.zIndex = total - index; 
 
             const imgBox = document.createElement('div');
@@ -326,10 +335,8 @@
             img.src = layer.file;
 
             if (layer.isFixed) {
-                // obj.png 和 graph.png 保持原圖不變色
                 img.className = 'raw-img';
             } else {
-                // 其餘一般圖層採用 2000px 偏移 drop-shadow 100% 強制純色轉色
                 img.style.filter = `drop-shadow(2000px 0px 0px ${layer.color})`;
             }
             
@@ -339,16 +346,14 @@
         });
     }
 
-    // 切換顯示狀態
     function toggleVisibility(id, isVisible) {
         const layer = layers.find(l => l.id === id);
         if (layer) {
             layer.visible = isVisible;
-            renderPreview(); // 預覽畫面立即重新整理
+            renderPreview();
         }
     }
 
-    // 更新顏色
     function updateLayerColor(id, hex) {
         const layer = layers.find(l => l.id === id);
         if (layer) {
@@ -357,44 +362,84 @@
         }
     }
 
-    // --- 可拖曳核心邏輯（限制首尾不可動） ---
+    // --- [滑鼠] 拖曳核心邏輯 ---
     let dragSrcEl = null;
-
     function handleDragStart(e) {
         this.classList.add('dragging');
         dragSrcEl = this;
         e.dataTransfer.effectAllowed = 'move';
     }
-
     function handleDragOver(e) {
         if (e.preventDefault) { e.preventDefault(); }
         return false;
     }
-
     function handleDrop(e) {
         if (e.stopPropagation) { e.stopPropagation(); }
-        
         if (dragSrcEl !== this) {
             const listItems = Array.from(layersListEl.children);
             const fromIndex = listItems.indexOf(dragSrcEl);
             const toIndex = listItems.indexOf(this);
+            if (fromIndex === 0 || toIndex === 0 || fromIndex === layers.length - 1 || toIndex === layers.length - 1) return false;
             
-            // 確保目標跟來源都不是最頂層 (0) 或最底層 (最後一個)
-            if (fromIndex === 0 || toIndex === 0 || fromIndex === layers.length - 1 || toIndex === layers.length - 1) {
-                return false; // 阻擋移動
-            }
-            
-            // 重新編排中間層陣列
             const targetItem = layers.splice(fromIndex, 1)[0];
             layers.splice(toIndex, 0, targetItem);
-            
             render();
         }
         return false;
     }
+    function handleDragEnd() { this.classList.remove('dragging'); }
 
-    function handleDragEnd() {
-        this.classList.remove('dragging');
+    // --- 🔥 [iPad/觸控] 拖曳核心邏輯 ---
+    let touchStartEl = null;
+    let activePlaceholder = null;
+
+    function handleTouchStart(e) {
+        // 如果點選到下拉選單或勾選框，不觸發拖曳
+        if (e.target.tagName === 'SELECT' || e.target.tagName === 'INPUT' || e.target.tagName === 'OPTION') return;
+        
+        touchStartEl = this;
+        this.classList.add('dragging');
+        e.stopPropagation();
+    }
+
+    function handleTouchMove(e) {
+        if (!touchStartEl) return;
+        e.preventDefault(); // 🔥 阻止 iPad 頁面滾動
+
+        const touch = e.touches[0];
+        // 取得手指當前位置下的 HTML 元素
+        const targetEl = document.elementFromPoint(touch.clientX, touch.clientY);
+        if (!targetEl) return;
+
+        // 尋找手指滑到的目標圖層項目
+        const itemEl = targetEl.closest('.layer-item.draggable');
+        if (itemEl && itemEl !== touchStartEl) {
+            const listItems = Array.from(layersListEl.children);
+            const fromIndex = listItems.indexOf(touchStartEl);
+            const toIndex = listItems.indexOf(itemEl);
+
+            // 限制不可跨越頂底層鎖定區
+            if (fromIndex === 0 || toIndex === 0 || fromIndex === layers.length - 1 || toIndex === layers.length - 1) return;
+
+            // 即時動態交換資料陣列順序
+            const targetItem = layers.splice(fromIndex, 1)[0];
+            layers.splice(toIndex, 0, targetItem);
+            
+            // 為了不打斷觸控焦點，只重繪列表 DOM，不破壞 touch 事件
+            renderControls();
+            // 同時保持目前正在拖曳項目的高亮狀態
+            const newItems = Array.from(layersListEl.children);
+            touchStartEl = newItems[toIndex];
+            touchStartEl.classList.add('dragging');
+        }
+    }
+
+    function handleTouchEnd(e) {
+        if (touchStartEl) {
+            touchStartEl.classList.remove('dragging');
+            touchStartEl = null;
+            render(); // 最終放開時全面重繪（包含右側畫布）
+        }
     }
 
     // 啟動工具

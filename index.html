@@ -3,15 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>操場劃線顏色與圖層測試工具</title>
+    <title>Playground Colours</title>
     <style>
         :root {
-            --bg-color: #222;
+            --bg-color: #FFFFFF;
+            --panel-bg: #f5f5f5;
+            --text-color: #333333;
+            --border-color: #dddddd;
+            --item-bg: #ffffff;
         }
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             background-color: var(--bg-color);
-            color: #fff;
+            color: var(--text-color);
             margin: 0;
             padding: 20px;
             display: flex;
@@ -22,36 +26,65 @@
         /* 左側控制面板 */
         #control-panel {
             flex: 1;
-            max-width: 450px;
-            background: #333;
+            max-width: 480px;
+            background: var(--panel-bg);
             padding: 20px;
             border-radius: 8px;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
             overflow-y: auto;
             display: flex;
             flex-direction: column;
             gap: 15px;
+            border: 1px solid var(--border-color);
         }
-        h2 { margin-top: 0; border-bottom: 1px solid #444; padding-bottom: 10px; }
+        h2 { margin-top: 0; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; font-size: 20px; }
         
+        /* 頂部圓點色板 */
+        .palette-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .color-dot {
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            cursor: pointer;
+            border: 1px solid rgba(0,0,0,0.2);
+            transition: transform 0.1s;
+        }
+        .color-dot:hover {
+            transform: scale(1.2);
+        }
+
+        /* 圖層項目 */
         .layer-item {
-            background: #444;
+            background: var(--item-bg);
             padding: 12px;
             border-radius: 6px;
             display: flex;
             align-items: center;
-            gap: 10px;
-            cursor: grab;
-            user-select: none;
-            border: 1px solid transparent;
-            transition: border 0.2s;
+            gap: 12px;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
         }
-        .layer-item:active { cursor: grabbing; }
-        .layer-item.dragging { opacity: 0.5; border: 1px dashed #fff; }
+        .layer-item.draggable { cursor: grab; }
+        .layer-item.draggable:active { cursor: grabbing; }
+        .layer-item.dragging { opacity: 0.5; border: 1px dashed #999; }
         
-        .drag-handle { color: #888; cursor: grab; font-size: 20px; }
-        .layer-info { flex: 1; }
-        .layer-name { font-weight: bold; font-size: 14px; margin-bottom: 5px; }
+        .layer-item.fixed-layer {
+            background: #ebebeb;
+            cursor: not-allowed;
+        }
+        
+        .drag-handle { color: #aaa; font-size: 20px; user-select: none; }
+        .drag-handle.disabled { color: #ccc; cursor: not-allowed; }
+        
+        .layer-info { flex: 1; display: flex; flex-direction: column; gap: 5px; }
+        .layer-name { font-weight: bold; font-size: 14px; }
+        .layer-filename { font-size: 11px; color: #888; }
         
         .color-picker-wrapper {
             display: flex;
@@ -59,32 +92,41 @@
             gap: 8px;
         }
         .color-select {
-            background: #555;
-            color: white;
-            border: 1px solid #666;
+            background: #fff;
+            color: #333;
+            border: 1px solid var(--border-color);
             padding: 4px 8px;
             border-radius: 4px;
             cursor: pointer;
             flex: 1;
+            font-size: 13px;
+        }
+        
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 13px;
+            cursor: pointer;
         }
 
         /* 右側預覽區域 */
         #preview-container {
             flex: 2;
-            background: #1a1a1a;
+            background: #ffffff;
             border-radius: 8px;
             display: flex;
             justify-content: center;
             align-items: center;
             position: relative;
             overflow: hidden;
-            border: 2px solid #444;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
         }
-        /* 畫布本體 */
         #canvas-viewport {
             position: relative;
-            width: 90%;
-            height: 90%;
+            width: 95%;
+            height: 95%;
             display: flex;
             justify-content: center;
             align-items: center;
@@ -100,27 +142,34 @@
             justify-content: center;
             align-items: center;
         }
-        /* 核心轉色樣式 */
-        .layer-img-wrap div {
+        .layer-img-wrap .img-box {
             width: 100%;
             height: 100%;
-            background-size: contain;
-            background-repeat: no-repeat;
-            background-position: center;
-            mask-size: contain;
-            mask-repeat: no-repeat;
-            mask-position: center;
-            -webkit-mask-size: contain;
-            -webkit-mask-repeat: no-repeat;
-            -webkit-mask-position: center;
+            overflow: hidden;
+            position: relative;
+        }
+        .layer-img-wrap img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            position: absolute;
+            left: -2000px;
+        }
+        /* 不需要改色的原始圖片樣式 */
+        .layer-img-wrap img.raw-img {
+            left: 0 !important;
+            filter: none !important;
         }
     </style>
 </head>
 <body>
 
     <div id="control-panel">
-        <h2>圖層與顏色管理</h2>
-        <p style="font-size: 12px; color: #aaa; margin: 0 0 10px 0;">💡 拖曳圖層可上下排序（越上面的項目在網頁最上層）</p>
+        <h2>Playground Colours</h2>
+        
+        <div class="palette-container" id="palette-box"></div>
+        
+        <p style="font-size: 12px; color: #666; margin: 0 0 5px 0;">💡 拖曳中間的圖層可上下排序（越上面疊在越上層）</p>
         <div id="layers-list"></div>
     </div>
 
@@ -129,123 +178,174 @@
     </div>
 
 <script>
-    // ==========================================
-    // 1. 設定區：已替換為您的實體 PNG 檔名
-    // ==========================================
-    const layerFiles = [
-        "bbl.png",
-        "pb2.png",
-        "vb.png",
-        "hb.png",
-        "100m.png",
-        "bb2.png",
-        "bb1.png",
-        "base.png",
-        "tennis.png"
-    ];
-
-    // 您稍後可以隨意自定義的 Hex 顏色清單
+    // 5. 顏色列表
     const colorPalette = [
-        { name: "預設白", hex: "#FFFFFF" },
-        { name: "跑道紅", hex: "#A63A3A" },
-        { name: "草地綠", hex: "#3A8346" },
-        { name: "線條黃", hex: "#E6B800" },
-        { name: "天空藍", hex: "#3A7BA6" },
-        { name: "活力橘", hex: "#D97724" },
-        { name: "深灰黑", hex: "#333333" }
+        { name: "Tropical Green", hex: "#385c4e" },
+        { name: "Spring Green", hex: "#56a04b" },
+        { name: "Light Green", hex: "#78997e" },
+        { name: "Smoky Grey", hex: "#a3aea8" },
+        { name: "Silver Grey", hex: "#777c7f" },
+        { name: "Blue", hex: "#2a62b7" },
+        { name: "Teal", hex: "#328cc1" },
+        { name: "Light Blue", hex: "#87b4cb" },
+        { name: "Light Purple", hex: "#997db7" },
+        { name: "Purple", hex: "#695594" },
+        { name: "Red", hex: "#803e30" },
+        { name: "Bright Red", hex: "#b93c36" },
+        { name: "Orange", hex: "#e46f2c" },
+        { name: "Light Brown", hex: "#a2876a" },
+        { name: "Brown", hex: "#836759" },
+        { name: "Peach Yellow", hex: "#debf89" },
+        { name: "Earth Yellow", hex: "#c89d3e" },
+        { name: "Eggshell", hex: "#f3d895" },
+        { name: "Bright Yellow", hex: "#e9dc36" }
     ];
 
-    // ==========================================
-    // 2. 程式邏輯區
-    // ==========================================
-    
-    // 初始化圖層狀態
-    let layers = layerFiles.map((filename, index) => ({
-        id: `layer-${index}`,
-        name: filename,
-        file: filename,
-        color: colorPalette[0].hex
-    }));
+    // 3, 4, 7, 8. 所有圖層初始狀態定義 (此順序代表預設由上而下的疊加順序)
+    let layers = [
+        { id: "obj", name: "Objects", file: "obj.png", visible: true, isFixed: true, position: "top" },
+        { id: "bbl", name: "Basketball Lines", file: "bbl.png", visible: true, color: "#e9dc36", isFixed: false },
+        { id: "pb2", name: "Pickleball (x2)", file: "pb2.png", visible: true, color: "#87b4cb", isFixed: false },
+        { id: "pb3", name: "Pickleball (x3)", file: "pb3.png", visible: false, color: "#87b4cb", isFixed: false },
+        { id: "tennis", name: "Tennis", file: "tennis.png", visible: false, color: "#c89d3e", isFixed: false },
+        { id: "vb", name: "Volleyball", file: "vb.png", visible: true, color: "#87b4cb", isFixed: false },
+        { id: "hb", name: "Handball", file: "hb.png", visible: true, color: "#b93c36", isFixed: false },
+        { id: "100m", name: "100 m", file: "100m.png", visible: true, color: "#a3aea8", isFixed: false },
+        { id: "bb2", name: "Basketball Key", file: "bb2.png", visible: true, color: "#328cc1", isFixed: false },
+        { id: "bb1", name: "Basketball Court", file: "bb1.png", visible: true, color: "#777c7f", isFixed: false },
+        { id: "base", name: "Playground Base", file: "base.png", visible: true, color: "#56a04b", isFixed: false },
+        { id: "graph", name: "Graph", file: "graph.png", visible: true, isFixed: true, position: "bottom" }
+    ];
 
     const layersListEl = document.getElementById('layers-list');
     const viewportEl = document.getElementById('canvas-viewport');
+    const paletteBoxEl = document.getElementById('palette-box');
+
+    // 初始化生成頂部色板
+    function initPalette() {
+        colorPalette.forEach(c => {
+            const dot = document.createElement('div');
+            dot.className = 'color-dot';
+            dot.style.backgroundColor = c.hex;
+            dot.title = `${c.name} (${c.hex})`;
+            paletteBoxEl.appendChild(dot);
+        });
+    }
 
     function render() {
         renderControls();
         renderPreview();
     }
 
-    // 渲染左側控制項
+    // 渲染左側控制面板
     function renderControls() {
         layersListEl.innerHTML = '';
         layers.forEach((layer, index) => {
             const item = document.createElement('div');
-            item.className = 'layer-item';
-            item.draggable = true;
+            item.className = `layer-item ${layer.isFixed ? 'fixed-layer' : 'draggable'}`;
+            item.draggable = !layer.isFixed;
             item.dataset.id = layer.id;
             
-            const colorOptions = colorPalette.map(c => 
-                `<option value="${c.hex}" ${layer.color.toUpperCase() === c.hex.toUpperCase() ? 'selected' : ''}>${c.name} (${c.hex})</option>`
-            ).join('');
-
-            item.innerHTML = `
-                <div class="drag-handle">☰</div>
-                <div class="layer-info">
-                    <div class="layer-name">${layer.name} <span style="font-size:11px; color:#888;">(層級: ${layers.length - index})</span></div>
+            // 建立選單選項
+            let colorSelectHTML = '';
+            if (!layer.isFixed) {
+                const colorOptions = colorPalette.map(c => 
+                    `<option value="${c.hex}" ${layer.color.toUpperCase() === c.hex.toUpperCase() ? 'selected' : ''}>${c.name}</option>`
+                ).join('');
+                
+                colorSelectHTML = `
                     <div class="color-picker-wrapper">
                         <select class="color-select" data-id="${layer.id}">
                             ${colorOptions}
                         </select>
-                        <div style="width:20px; height:20px; border-radius:4px; background:${layer.color}; border:1px solid #fff;"></div>
+                        <div style="width:18px; height:18px; border-radius:4px; background:${layer.color}; border:1px solid #ccc; flex-shrink:0;"></div>
                     </div>
+                `;
+            } else {
+                colorSelectHTML = `<span style="font-size:12px; color:#777; font-style:italic;">圖層位置固定 (不支援改色)</span>`;
+            }
+
+            item.innerHTML = `
+                <div class="drag-handle ${layer.isFixed ? 'disabled' : ''}">${layer.isFixed ? '🔒' : '☰'}</div>
+                <div class="layer-info">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <span class="layer-name">${layer.name}</span>
+                        <label class="checkbox-label">
+                            <input type="checkbox" class="visibility-toggle" data-id="${layer.id}" ${layer.visible ? 'checked' : ''}>
+                            顯示
+                        </label>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-top:2px;">
+                        <span class="layer-filename">${layer.file}</span>
+                        ${!layer.isFixed ? `<span style="font-size:11px; color:#999; font-weight:bold;">#${layer.color.replace('#','').toUpperCase()}</span>` : ''}
+                    </div>
+                    <div style="margin-top:5px;">${colorSelectHTML}</div>
                 </div>
             `;
 
-            item.querySelector('.color-select').addEventListener('change', (e) => {
-                updateLayerColor(e.target.dataset.id, e.target.value);
+            // 監聽顯示/隱藏勾選
+            item.querySelector('.visibility-toggle').addEventListener('change', (e) => {
+                toggleVisibility(e.target.dataset.id, e.target.checked);
             });
 
-            item.addEventListener('dragstart', handleDragStart);
-            item.addEventListener('dragover', handleDragOver);
-            item.addEventListener('drop', handleDrop);
-            item.addEventListener('dragend', handleDragEnd);
+            // 監聽顏色下拉選單
+            if (!layer.isFixed) {
+                item.querySelector('.color-select').addEventListener('change', (e) => {
+                    updateLayerColor(e.target.dataset.id, e.target.value);
+                });
+                
+                // 拖曳事件
+                item.addEventListener('dragstart', handleDragStart);
+                item.addEventListener('dragover', handleDragOver);
+                item.addEventListener('drop', handleDrop);
+                item.addEventListener('dragend', handleDragEnd);
+            }
 
             layersListEl.appendChild(item);
         });
     }
 
-// 完美的 drop-shadow 轉色解決方案
+    // 渲染右側劃線圖預覽
     function renderPreview() {
         viewportEl.innerHTML = '';
         const total = layers.length;
+        
         layers.forEach((layer, index) => {
+            // 如果設定為不顯示，直接跳過不渲染
+            if (!layer.visible) return;
+
             const wrap = document.createElement('div');
             wrap.className = 'layer-img-wrap';
+            // 陣列上方的圖層 z-index 較高，確保 obj 在最前，graph 在最後
             wrap.style.zIndex = total - index; 
 
-            // 建立一個獨立的圖片容器
-            const imgContainer = document.createElement('div');
-            imgContainer.style.width = '100%';
-            imgContainer.style.height = '100%';
-            imgContainer.style.overflow = 'hidden'; // 隱藏移出邊界的原圖
-            imgContainer.style.position = 'relative';
+            const imgBox = document.createElement('div');
+            imgBox.className = 'img-box';
 
-            // 核心魔術：
-            // 1. filter: drop-shadow(2000px 0px 0px ${layer.color}) 代表在右邊 2000px 的地方生成一個純色的完美複製體
-            // 2. transform: translateX(-2000px) 再把整個圖片往左拉回 2000px，這樣原本隱藏的本體就消失了，畫面上只留下完美的純色投影！
             const img = document.createElement('img');
             img.src = layer.file;
-            img.style.width = '100%';
-            img.style.height = '100%';
-            img.style.objectFit = 'contain';
-            img.style.position = 'absolute';
-            img.style.left = '-2000px'; // 把原圖往左移出可見區域
-            img.style.filter = `drop-shadow(2000px 0px 0px ${layer.color})`; // 投射純色影子回原位
+
+            if (layer.isFixed) {
+                // obj.png 和 graph.png 保持原圖不變色
+                img.className = 'raw-img';
+            } else {
+                // 其餘一般圖層採用 2000px 偏移 drop-shadow 100% 強制純色轉色
+                img.style.filter = `drop-shadow(2000px 0px 0px ${layer.color})`;
+            }
             
-            imgContainer.appendChild(img);
-            wrap.appendChild(imgContainer);
+            imgBox.appendChild(img);
+            wrap.appendChild(imgBox);
             viewportEl.appendChild(wrap);
         });
+    }
+
+    // 切換顯示狀態
+    function toggleVisibility(id, isVisible) {
+        const layer = layers.find(l => l.id === id);
+        if (layer) {
+            layer.visible = isVisible;
+            renderPreview(); // 預覽畫面立即重新整理
+        }
     }
 
     // 更新顏色
@@ -257,7 +357,7 @@
         }
     }
 
-    // Drag and Drop 拖曳排序
+    // --- 可拖曳核心邏輯（限制首尾不可動） ---
     let dragSrcEl = null;
 
     function handleDragStart(e) {
@@ -279,6 +379,12 @@
             const fromIndex = listItems.indexOf(dragSrcEl);
             const toIndex = listItems.indexOf(this);
             
+            // 確保目標跟來源都不是最頂層 (0) 或最底層 (最後一個)
+            if (fromIndex === 0 || toIndex === 0 || fromIndex === layers.length - 1 || toIndex === layers.length - 1) {
+                return false; // 阻擋移動
+            }
+            
+            // 重新編排中間層陣列
             const targetItem = layers.splice(fromIndex, 1)[0];
             layers.splice(toIndex, 0, targetItem);
             
@@ -291,7 +397,8 @@
         this.classList.remove('dragging');
     }
 
-    // 初始化啟動
+    // 啟動工具
+    initPalette();
     render();
 </script>
 </body>

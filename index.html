@@ -132,6 +132,28 @@
             position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 2;
             mix-blend-mode: source-in; /* 在部分老舊設備的備用模式 */
         }
+
+        /* 💾 另存圖片按鈕樣式 */
+        .btn-save-img {
+            position: absolute;
+            bottom: 15px;
+            right: 15px;
+            background: #2a62b7;
+            color: white;
+            border: none;
+            padding: 10px 16px;
+            font-size: 14px;
+            font-weight: bold;
+            border-radius: 20px;
+            cursor: pointer;
+            box-shadow: 0 4px 10px rgba(42,98,183,0.3);
+            z-index: 999;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .btn-save-img:hover { background: #1e4ea3; }
     </style>
 </head>
 <body>
@@ -147,6 +169,7 @@
 
     <div id="preview-container">
         <div id="canvas-viewport"></div>
+        <button class="btn-save-img" onclick="exportToPNG()">💾 另存圖片</button>
     </div>
 
 <script>
@@ -192,6 +215,9 @@
     const layersListEl = document.getElementById('layers-list');
     const viewportEl = document.getElementById('canvas-viewport');
     const paletteBoxEl = document.getElementById('palette-box');
+
+    // 快取機制，存放已載入完畢的 Image 物件
+    let imageCache = {};
 
     function initPalette() {
         colorPalette.forEach(c => {
@@ -259,7 +285,6 @@
         });
     }
 
-    // 🔥 重新編寫：最完美的 iPad 專用原地轉色預覽
     function renderPreview() {
         viewportEl.innerHTML = '';
         const total = layers.length;
@@ -275,13 +300,10 @@
             imgBox.className = 'img-box';
 
             if (layer.isFixed) {
-                // Fixed 圖層 (obj, graph) 直接原樣顯示
                 const img = document.createElement('img');
                 img.src = layer.file;
                 imgBox.appendChild(img);
             } else {
-                // 🔥 一般圖層：採用 CSS 新技術「CSS Mask 元素的進階寫法」
-                // 這種寫法不再使用複雜的移出視窗外投影法，而是直接把圖片當作容器的遮罩，完美相容 iPad Safari
                 imgBox.style.backgroundColor = layer.color;
                 imgBox.style.webkitMaskImage = `url('${layer.file}')`;
                 imgBox.style.webkitMaskSize = 'contain';
@@ -296,6 +318,74 @@
             
             wrap.appendChild(imgBox);
             viewportEl.appendChild(wrap);
+        });
+    }
+
+    // 💾 另存圖片導出函數（在背景用畫布精確重組，不污染前端 DOM）
+    async function exportToPNG() {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        // 取得基本原圖尺寸（以 base.png 為基準）確保匯出圖片的高清解像度
+        const baseImg = await loadImage(layers.find(l => l.id === 'base').file);
+        canvas.width = baseImg.naturalWidth || 1920;
+        canvas.height = baseImg.naturalHeight || 1080;
+
+        // 填滿畫布底色（白色）
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // 必須從陣列的「最後面」往「最前面」畫入畫布（由底層疊加至頂層）
+        for (let i = layers.length - 1; i >= 0; i--) {
+            const layer = layers[i];
+            if (!layer.visible) continue;
+
+            const img = await loadImage(layer.file);
+            
+            if (layer.isFixed) {
+                // 固定圖層：直接貼上原圖
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            } else {
+                // 變色圖層：使用 Canvas 快照染色（效果完美對應前端的 CSS mask）
+                const maskCanvas = document.createElement('canvas');
+                maskCanvas.width = canvas.width;
+                maskCanvas.height = canvas.height;
+                const maskCtx = maskCanvas.getContext('2d');
+
+                // 畫出圖案形狀
+                maskCtx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                // 鎖定像素，只在有圖案的地方蓋上顏色
+                maskCtx.globalCompositeOperation = 'source-in';
+                maskCtx.fillStyle = layer.color;
+                maskCtx.fillRect(0, 0, canvas.width, canvas.height);
+
+                // 將染色完成的獨立層疊回主畫面
+                ctx.drawImage(maskCanvas, 0, 0);
+            }
+        }
+
+        // 下載機制（全面相容 iPad 瀏覽器下載至檔案 App 或是 PC 直接存檔）
+        const link = document.createElement('a');
+        link.download = 'playground.png';
+        link.href = canvas.toDataURL('image/png');
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+
+    // 用於 Promise 非同步預載入圖片的輔助函數（避免畫布繪製時出現空白）
+    function loadImage(src) {
+        return new Promise((resolve) => {
+            if (imageCache[src]) {
+                resolve(imageCache[src]);
+                return;
+            }
+            const img = new Image();
+            img.src = src;
+            img.onload = () => {
+                imageCache[src] = img;
+                resolve(img);
+            };
         });
     }
 

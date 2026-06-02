@@ -154,6 +154,42 @@
             gap: 6px;
         }
         .btn-save-img:hover { background: #1e4ea3; }
+
+        /* 📱 這裡加入了手機/直向小螢幕配適 (RWD) */
+        @media (max-width: 768px) {
+            body {
+                flex-direction: column; /* 改為上下垂直直排 */
+                padding: 10px;
+                height: auto;
+                overflow-x: hidden;
+            }
+            #preview-container {
+                width: 100%;
+                height: 45vh; /* 預覽圖形佔上半個螢幕 */
+                min-height: 260px;
+                flex: none;
+                order: 1; /* 強制預覽圖置頂，方便對照看變化 */
+            }
+            #control-panel {
+                width: 100%;
+                max-width: 100%;
+                height: auto;
+                flex: none;
+                order: 2; /* 控制台沉在下方 */
+                box-shadow: none;
+                padding: 15px 10px;
+            }
+            h2 {
+                font-size: 18px;
+                text-align: center;
+            }
+            .btn-save-img {
+                padding: 8px 12px;
+                font-size: 12px;
+                bottom: 10px;
+                right: 10px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -321,21 +357,18 @@
         });
     }
 
-    // 💾 另存圖片導出函數（在背景用畫布精確重組，不污染前端 DOM）
+    // 💾 另存圖片導出函數
     async function exportToPNG() {
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
         
-        // 取得基本原圖尺寸（以 base.png 為基準）確保匯出圖片的高清解像度
         const baseImg = await loadImage(layers.find(l => l.id === 'base').file);
         canvas.width = baseImg.naturalWidth || 1920;
         canvas.height = baseImg.naturalHeight || 1080;
 
-        // 填滿畫布底色（白色）
         ctx.fillStyle = '#FFFFFF';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        // 必須從陣列的「最後面」往「最前面」畫入畫布（由底層疊加至頂層）
         for (let i = layers.length - 1; i >= 0; i--) {
             const layer = layers[i];
             if (!layer.visible) continue;
@@ -343,28 +376,22 @@
             const img = await loadImage(layer.file);
             
             if (layer.isFixed) {
-                // 固定圖層：直接貼上原圖
                 ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
             } else {
-                // 變色圖層：使用 Canvas 快照染色（效果完美對應前端的 CSS mask）
                 const maskCanvas = document.createElement('canvas');
                 maskCanvas.width = canvas.width;
                 maskCanvas.height = canvas.height;
                 const maskCtx = maskCanvas.getContext('2d');
 
-                // 畫出圖案形狀
                 maskCtx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                // 鎖定像素，只在有圖案的地方蓋上顏色
                 maskCtx.globalCompositeOperation = 'source-in';
                 maskCtx.fillStyle = layer.color;
                 maskCtx.fillRect(0, 0, canvas.width, canvas.height);
 
-                // 將染色完成的獨立層疊回主畫面
                 ctx.drawImage(maskCanvas, 0, 0);
             }
         }
 
-        // 下載機制（全面相容 iPad 瀏覽器下載至檔案 App 或是 PC 直接存檔）
         const link = document.createElement('a');
         link.download = 'playground.png';
         link.href = canvas.toDataURL('image/png');
@@ -373,7 +400,6 @@
         document.body.removeChild(link);
     }
 
-    // 用於 Promise 非同步預載入圖片的輔助函數（避免畫布繪製時出現空白）
     function loadImage(src) {
         return new Promise((resolve) => {
             if (imageCache[src]) {

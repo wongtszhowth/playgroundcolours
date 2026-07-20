@@ -199,13 +199,13 @@
         
         <div class="palette-container" id="palette-box"></div>
         
-        <p style="font-size: 12px; color: #666; margin: 0 0 5px 0;">💡 點擊 ▲ 或 ▼ 按鈕調整圖層次序</p>
+        <p style="font-size: 12px; color: #666; margin: 0 0 5px 0;">💡 Click ▲ or ▼ to arrange layer orders</p>
         <div id="layers-list"></div>
     </div>
 
     <div id="preview-container">
         <div id="canvas-viewport"></div>
-        <button class="btn-save-img" onclick="exportToPNG()">💾 另存圖片</button>
+        <button class="btn-save-img" onclick="exportToPNG()">💾 Save Image</button>
     </div>
 
 <script>
@@ -298,7 +298,7 @@
                     </div>
                 `;
             } else {
-                colorSelectHTML = `<span style="font-size:12px; color:#777; font-style:italic;">圖層位置固定 (不支援改色)</span>`;
+                colorSelectHTML = `<span style="font-size:12px; color:#777; font-style:italic;">Fixed Layer</span>`;
             }
 
             item.innerHTML = `
@@ -306,7 +306,7 @@
                 <div class="layer-info">
                     <div style="display:flex; justify-content:space-between; align-items:center;">
                         <span class="layer-name">${layer.name}</span>
-                        <label class="checkbox-label"><input type="checkbox" class="visibility-toggle" data-id="${layer.id}" ${layer.visible ? 'checked' : ''}>顯示</label>
+                        <label class="checkbox-label"><input type="checkbox" class="visibility-toggle" data-id="${layer.id}" ${layer.visible ? 'checked' : ''}>Show</label>
                     </div>
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-top:2px;">
                         <span class="layer-filename">${layer.file}</span>
